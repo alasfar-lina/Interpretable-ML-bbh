@@ -42,6 +42,17 @@ protected:
    Int_t _pdg_id;         // the associated pdg id
 };
 
+class MyBtag : public PseudoJet::UserInfoBase{
+public:
+   //  - pdg_id        the PDG id of the particle
+   MyBtag(const Int_t  flag ):
+   _xbtag(flag){}
+   /// access to the PDG id
+   Int_t xbtag() const { return _xbtag;}
+protected:
+   Int_t _xbtag;         // the associated pdg id
+};
+
 ///////////////////// class to  b-tag the jets //////////////////////////
 
 class SW_IsBeauty : public SelectorWorker{
@@ -143,8 +154,8 @@ public:
       int run_analysis() {
 
 
-         std::string x = "./root_files/SM-ggF-0TeV.root ";
-         std::string y= "./result_SM-ggF-14TeV.root";
+         std::string x = "./generate-events/ggF-SM-14TeV.root";
+         std::string y= "./result_SM-1btag-14TeV.root";
          TString infile = x;
          TString outfile = y;
 
@@ -152,7 +163,7 @@ public:
          TFile *f = new TFile(infile);
          TFile* rf = TFile::Open(outfile,"recreate");
          TTree *t1 = (TTree*)f->Get("RootTuple");
-         TTree *OutTree = new TTree("HHSM14","hh SM 14 TeV events");
+         TTree *OutTree = new TTree("HHSM14","hh  SM 14 TeV events");
          // t1->Print();
          std::vector<PseudoJet> particles;
          std::vector<PseudoJet> Final_state_particles;
@@ -173,7 +184,8 @@ public:
          t1->SetBranchAddress("mother_index",&mother_index);
          t1->SetBranchAddress("weight",&weight); // event weight in fb  ( d \sigma)
          /////////////////////////////////////////////
-                 Int_t nbjet;
+         Double_t njjet;
+         Double_t nbjet;
                  Double_t ptb1;
                  Double_t ptb2;
                  Double_t pta1 ;
@@ -196,7 +208,8 @@ public:
                  Double_t dphibb;
 
                  //////
-                 OutTree->Branch("nbjet", &nbjet, "nbjet/I");
+                 OutTree->Branch("njjet", &njjet, "njjet/D");
+                 OutTree->Branch("nbjet", &nbjet, "nbjet/D");
                  OutTree->Branch("ptb1", &ptb1, "ptb1/D");
                  OutTree->Branch("ptb2", &ptb2, "ptb2/D");
                  OutTree->Branch("pta1", &pta1, "pta1/D");
@@ -208,6 +221,9 @@ public:
                  OutTree->Branch("etaa2", &etaa2,"etaa2/D");
                  OutTree->Branch("etaaa", &etaaa, "etaaa/D");
                  OutTree->Branch("mbb", &mbb,"mbb/D");
+                 OutTree->Branch("maa", &maa,"maa/D");
+                 OutTree->Branch("mb1h", &mb1h,"mb1h/D");
+                 OutTree->Branch("mbbh", &mbbh,"mbbh/D");
                  // OutTree->Branch("met", &met, "met/D”);
                  OutTree->Branch("ht", &ht, "ht/D");
                  OutTree->Branch("drbamin", &drbamin,"drbamin/D");
@@ -264,9 +280,9 @@ public:
                   Int_t btag_mother = Btag(gmother_id) ;
                   Int_t btag_gmother = Btag(ggmother_id) ;
                   Int_t btag_ggmother = Btag(gggmother_id) ;
+                  int bflag = btag_mother | btag_gmother|btag_ggmother;
 
-                  p.set_user_index(((btag | btag_mother )| btag_gmother) |btag_ggmother);
-                  // Int_t tag =  (btag | btag_mother )| btag_gmother;
+                  p.set_user_index(bflag);
                   Final_state_particles.push_back(p);
                   // this vector will contain the  event final state  particles,
                }
@@ -276,7 +292,7 @@ public:
             }
             // end loop over particle
             n_tot = n_tot +1 ;
-            if(flag_event)  continue;  // to preform the leptonic veto
+            // if(flag_event)  continue;  // to preform the leptonic veto
 
             Selector   sel_gamma = SelectorIsGamma();
             // ATLAS CUTS
@@ -295,60 +311,36 @@ public:
             if (gammas.size() <2 ) continue;
             n_trig = n_trig +1 ;
 
-            // obtain the mhh distribution
-            Selector   sel_higgs = SelectorIsHiggs();
-            std::vector<PseudoJet>  Higgses =  sel_higgs(particles);
-            if(Higgses.size() < 2) continue;
-            // for (size_t i = 0; i < Higgses.size(); i++) {
-            //    for (size_t j = i+1; j < Higgses.size(); j++) {
-            PseudoJet H1 = Higgses[0];
-            PseudoJet H2 = Higgses[1];
-            PseudoJet HHorg = join(H1,H2);
-            //    }
-            // }
-
-
-
-
-            double R = 0.4;  // select wide jet radius
-            //for the mass drop algorithm use 1.2
+            double R = 0.4;
             FlavourRecombiner flav_recombiner; // for tracking flavour
-
-            JetDefinition jet_def(antikt_algorithm, R, &flav_recombiner);
-            // run the jet finding; find the hardest jet
-            ClusterSequence cs(Final_state_particles, jet_def);
-            vector<PseudoJet> jets = sorted_by_pt(cs.inclusive_jets());
+            Selector NotGamma = !sel_gamma; // exclude gammas
+            JetDefinition jet_def(antikt_algorithm, R,&flav_recombiner);
+            vector<PseudoJet> Final_state_jets = NotGamma(Final_state_particles);
+            ClusterSequence cs(Final_state_jets, jet_def);
+            vector<PseudoJet> jets = sorted_by_pt(cs.inclusive_jets()) ;
             //
-            // Selector btagger =     SelectorIsBeauty();
+            njjet = jets.size();
             Selector sel_hardest=   SelectorAbsRapMax(3.0)&& SelectorPtMin(20.0);
-            vector<PseudoJet> sel_jets = sel_hardest(jets);
+            vector<PseudoJet> sel_jets =sel_hardest(jets);
+            vector<PseudoJet> sor_sel_jets  = sorted_by_pt(sel_jets);
+            if (sel_jets.size() <2) continue;
             vector<PseudoJet> sel_bjets;
-
             // add b-tagged jets (TRUTH)
             sel_bjets.clear();
             for (size_t k = 0; k < sel_jets.size(); k++) {
-               if (sel_jets[k].user_index() >0) {
+               int btaged = sel_jets[k].user_index();
+               if (btaged >0) {
                   sel_bjets.push_back(sel_jets[k]);
                }
             }
-            // if(sel_jets.size() > 5) continue;
             // only use events with 2 b-tagged jets
-            nbjet = sel_bjets.size();
-            if(sel_bjets.size() != 2) continue;
+             nbjet = sel_bjets.size();
+            PseudoJet bjet1 = sor_sel_jets[0];
+            PseudoJet bjet2 = sor_sel_jets[1];
 
-            // sort b-jets and select the 2 hardest
-            vector<PseudoJet> btagged =    sorted_by_pt(sel_bjets);
+            if( (bjet1.user_index() ==0) && (bjet2.user_index() ==0) ) continue; // require at least one b jet
 
-
-
-            PseudoJet bjet1 = btagged[0];
-            PseudoJet bjet2 = btagged[1];
             Double_t   Rbb = bjet1.delta_R(bjet2);
-
-
-
-            // next we "filter" it, to remove UE & pileup contamination
-            //----------------------------------------------------------
 
 
 

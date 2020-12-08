@@ -129,12 +129,14 @@ public:
 
 
 int run_analysis() {
-   TFile* rf = TFile::Open("./result_bbaa-14TeV.root","recreate");
-   TTree *OutTree = new TTree("HHSM14","hh SM 14 TeV events");
+   int nthreads = 48;
+   ROOT::EnableImplicitMT(nthreads);
+   TFile* rf = TFile::Open("./result_bbaa-14TeV-1btag-file2.root","recreate");
+   TTree *OutTree = new TTree("bbaa-14","bbar gamma gamma  bkg 14 TeV events");
    Pythia pythia;
-   pythia.readString("PhaseSpace:pTHatMin = 20.");
+   // pythia.readString("PhaseSpace:pTHatMin = 20.");
    pythia.readString("Beams:frameType = 4");
-   pythia.readString("Beams:LHEF = ./events.lhe");
+   pythia.readString("Beams:LHEF =/users/pep/alasfarl/bbaa_background_14TeV/run_01/unweighted_events.lhe");
 ///////////
 pythia.readString("310:mayDecay = off");  //  K0s
 pythia.readString("3112:mayDecay = off"); //  Sigma-
@@ -149,9 +151,9 @@ pythia.readString("3334:mayDecay = off"); //  Omega-
  std::vector<PseudoJet> particles;
  std::vector<PseudoJet> Final_state_particles;
  Double_t weight;
-
-
- Int_t nbjet;
+Double_t weight2;
+Double_t njjet;
+Double_t nbjet;
 Double_t ptb1;
 Double_t ptb2;
 Double_t pta1 ;
@@ -174,7 +176,8 @@ Double_t dphiba1;
 Double_t dphibb;
 
 //////
-OutTree->Branch("nbjet", &nbjet, "nbjet/I");
+OutTree->Branch("njjet", &njjet, "njjet/D");
+OutTree->Branch("nbjet", &nbjet, "nbjet/D");
 OutTree->Branch("ptb1", &ptb1, "ptb1/D");
 OutTree->Branch("ptb2", &ptb2, "ptb2/D");
 OutTree->Branch("pta1", &pta1, "pta1/D");
@@ -186,19 +189,26 @@ OutTree->Branch("etaa1", &etaa1, "etaa1/D");
 OutTree->Branch("etaa2", &etaa2,"etaa2/D");
 OutTree->Branch("etaaa", &etaaa, "etaaa/D");
 OutTree->Branch("mbb", &mbb,"mbb/D");
+OutTree->Branch("maa", &maa,"maa/D");
+OutTree->Branch("mb1h", &mb1h,"mb1h/D");
+OutTree->Branch("mbbh", &mbbh,"mbbh/D");
 // OutTree->Branch("met", &met, "met/D”);
 OutTree->Branch("ht", &ht, "ht/D");
 OutTree->Branch("drbamin", &drbamin,"drbamin/D");
 OutTree->Branch("drba1", &drba1,"drba1/D");
 OutTree->Branch("dphiba1", &dphiba1,"dphiba1/D");
 OutTree->Branch("dphibb", &dphibb,"dphibb/D");
-// OutTree->Branch("weight", &weight, "weight/D");
-
-int nevt=20000;
+OutTree->Branch("weight", &weight, "weight/D");
+OutTree->Branch("weight2", &weight2, "weight2/D");
+int nevt=800000;
 int Ninel =0;
-for (int ievt=0; ievt<nevt; ++ievt) {
-  while(!pythia.next());  // iterate until the next succesful event
-  if (pythia.info.atEndOfFile()) break;
+for  ( auto ievt:  ROOT::TSeqUL(nevt)) {
+
+// for (int ievt=0; ievt<nevt; ++ievt) {
+   if (!pythia.next()) {
+ if (pythia.info.atEndOfFile()) break; // Exit at enf of LHEF.
+ continue; // Skip event in case of problem.
+ }
 
   // if((ievt+1)%100==0) fprintf(stderr," PYTHIA Status: %8d/%d events generated\r",ievt+1,nevt);
 
@@ -214,7 +224,8 @@ for (int ievt=0; ievt<nevt; ++ievt) {
   if (ntrk != 0) {
   Ninel++ ;
   }
-
+  weight = pythia.info.weight();
+  weight2 = pythia.info.sigmaGen();
   // Find number of all final charged particles and fill histogram.
 
   for(int i=0; i <ntrk ; ++i) {
@@ -274,39 +285,37 @@ if (gammas.size() <2 ) continue;
 
 
 
-double R = 0.4;  // select wide jet radius
-//for the mass drop algorithm use 1.2
+
+
+double R = 0.4;
 FlavourRecombiner flav_recombiner; // for tracking flavour
-
-JetDefinition jet_def(antikt_algorithm, R, &flav_recombiner);
-// run the jet finding; find the hardest jet
-ClusterSequence cs(Final_state_particles, jet_def);
-vector<PseudoJet> jets = sorted_by_pt(cs.inclusive_jets());
+Selector NotGamma = !sel_gamma; // exclude gammas
+JetDefinition jet_def(antikt_algorithm, R,&flav_recombiner);
+vector<PseudoJet> Final_state_jets = NotGamma(Final_state_particles);
+ClusterSequence cs(Final_state_jets, jet_def);
+vector<PseudoJet> jets = sorted_by_pt(cs.inclusive_jets()) ;
 //
-// Selector btagger =     SelectorIsBeauty();
+njjet = jets.size();
 Selector sel_hardest=   SelectorAbsRapMax(3.0)&& SelectorPtMin(20.0);
-vector<PseudoJet> sel_jets = sel_hardest(jets);
+vector<PseudoJet> sel_jets =sel_hardest(jets);
+vector<PseudoJet> sor_sel_jets  = sorted_by_pt(sel_jets);
+if (sel_jets.size() <2) continue;
 vector<PseudoJet> sel_bjets;
-
 // add b-tagged jets (TRUTH)
 sel_bjets.clear();
 for (size_t k = 0; k < sel_jets.size(); k++) {
-   if (sel_jets[k].user_index() >0) {
+   int btaged = sel_jets[k].user_index();
+   if (btaged >0) {
       sel_bjets.push_back(sel_jets[k]);
    }
 }
-// if(sel_jets.size() > 5) continue;
 // only use events with 2 b-tagged jets
 nbjet = sel_bjets.size();
-if(sel_bjets.size() < 2) continue;
+PseudoJet bjet1 = sor_sel_jets[0];
+PseudoJet bjet2 = sor_sel_jets[1];
 
-// sort b-jets and select the 2 hardest
-vector<PseudoJet> btagged =    sorted_by_pt(sel_bjets);
+if( (bjet1.user_index() ==0) && (bjet2.user_index() ==0) ) continue; // require at least one b jet
 
-
-
-PseudoJet bjet1 = btagged[0];
-PseudoJet bjet2 = btagged[1];
 Double_t   Rbb = bjet1.delta_R(bjet2);
 
 
