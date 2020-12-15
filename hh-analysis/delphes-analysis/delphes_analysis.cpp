@@ -33,7 +33,7 @@ using namespace fastjet;
 int run_analysis()
 {
   gSystem->Load("libDelphes");
-	const char *inputFile ="/users/pep/alasfarl/HEP_tools/Delphes-3.4.2/HL-LHC14-HHSM.root";
+	const char *inputFile ="/users/pep/alasfarl/HEP_tools/Delphes-3.4.2/hh/HL-LHC14-HHSM.root";
 
   // Create chain of root trees
   TChain chain("Delphes");
@@ -52,7 +52,7 @@ int run_analysis()
   // Loop over all events
 
 
-     TFile* rf = TFile::Open("./SM-1btag-HLLHC14.root","recreate");
+     TFile* rf = TFile::Open("./SM-2btag-HLLHC14.root","recreate");
      TTree *OutTree = new TTree("HHSM14","hh  SM 14 TeV events");
      // t1->Print();
      std::vector<PseudoJet> jjets;
@@ -118,13 +118,18 @@ int run_analysis()
             double PTObsMin = 30.; // jet selection
             double PTAObsMin = 20.; // photon jet selection
 
-  for(Int_t entry = 0; entry < numberOfEntries; ++entry) // loop over events
+  for(Long64_t entry = 0; entry < numberOfEntries; ++entry) // loop over events
   {
 
     treeReader->ReadEntry(entry);
+		if (entry!=0) {
+			jjets.clear();
+			bjets.clear();
+			photons.clear();
+		}
 
-		Float_t  prog=  (Float_t)entry/(Float_t) numberOfEntries *100;
-		printf("\r[Events Analysed  ::  %.1f   %c ]", prog, 37);
+
+
 
     // If event contains at least 1 jet
 
@@ -136,7 +141,7 @@ int run_analysis()
        Int_t bflag = jet->BTag;
        pjet.set_user_index(bflag);
        if(jet->PT>PTObsMin && abs(jet->Eta)<EtaObsMax){
-				   jjets.push_back(pjet);
+				  if(bflag==0)  jjets.push_back(pjet);
 	    if(bflag==1) bjets.push_back(pjet);
     }
 	}
@@ -149,22 +154,23 @@ int run_analysis()
 	        photons.push_back(p);
 			 }
 		 }
-
            std::vector<PseudoJet> selected_gammas =  sorted_by_pt(photons);
 		             if (selected_gammas.size() <2 ) continue;
 								 PseudoJet gamma1 = selected_gammas[0];
 				         PseudoJet gamma2 = selected_gammas[1];
 								  PseudoJet gammagamma = join(gamma1,gamma2);
-								 if ((gammagamma.m() <110.0) && (gammagamma.m() > 140.0)) continue;
+								 if ((gammagamma.m() >110.0) && (gammagamma.m() < 140.0)){
 					std::vector<PseudoJet> sel_jets  = sorted_by_pt(jjets);
-			 	            if (sel_jets.size() <1) continue;
-										njjet = jjets.size() -bjets.size();
+						std::vector<PseudoJet> sel_bjets  = sorted_by_pt(bjets);
+										njjet = jjets.size();
+										if (bjets.size() <2) continue;
 										nbjet = bjets.size();
 
-										PseudoJet bjet1 = sel_jets[0];
-										PseudoJet bjet2 = sel_jets[1];
-
-									if( (bjet1.user_index() ==0) && (bjet2.user_index() ==0) ) continue; // require at least one to be btagged
+										PseudoJet bjet1 = sel_bjets[0];
+										PseudoJet bjet2(0.0,0.0,0.0,0.0);
+										if (nbjet>1) {
+											bjet2=sel_bjets[1];
+										}
 
 									Double_t delta_rgg = GetDeltaR(gamma1.eta(),gamma1.phi(),gamma2.eta(),gamma2.phi());
 					            Double_t delta_rbg11 = GetDeltaR(bjet1.eta(),bjet1.phi(),gamma1.eta(),gamma1.phi());
@@ -180,7 +186,8 @@ int run_analysis()
 					                Double_t min_delta_rg = TMath::Min(TMath::Min(delta_rbg11,delta_rbg12),TMath::Min(delta_rbg21,delta_rbg22));
 					            PseudoJet bb = join(bjet1,bjet2);
 					            PseudoJet HH  = join(bb,gammagamma) ;
-					            PseudoJet Hb1  = join(bjet1,gammagamma) ;
+												PseudoJet Hb1  = join(bjet1,gammagamma) ;
+
 					                  Double_t phi11= bjet1.delta_phi_to(gamma1);
 					                  Double_t phi12 =bjet1.delta_phi_to(gamma2);
 					                  Double_t phi21= bjet2.delta_phi_to(gamma1);
@@ -197,11 +204,11 @@ int run_analysis()
 					                  etaa1=gamma1.eta();
 					                  etaa2=gamma2.eta();
 					                  etaaa=gammagamma.eta();
-					                  mbb= bb.m();
 					                  maa=gammagamma.m();
-					                  mb1h=Hb1.m();
-					                  mbbh=HH.m();
-                              ScalarHT * scht= (ScalarHT*) branchHT->At(0);
+														mbb=bb.m();
+														mbbh=HH.m();
+														mb1h=Hb1.m();
+                            ScalarHT * scht= (ScalarHT*) branchHT->At(0);
 					                  ht= scht->HT;
 					                  drbamin=min_delta_rg;
 					                  drba1=TMath::Min(delta_rbg11,delta_rbg21);
@@ -209,10 +216,11 @@ int run_analysis()
 					                  dphibb=bjet2.delta_phi_to(bjet1);
 														MissingET *Misset = (MissingET*) branchMissingET->At(0);
 														met = Misset->MET;
+														Float_t  prog=  (Float_t)entry/(Float_t) numberOfEntries *100;
+														printf("\r[Events Analysed  ::  %.1f   %c ]", prog, 37);
 					                  OutTree->Fill();
-														jjets.clear();
-														bjets.clear();
-														photons.clear();
+
+												}
 }
 OutTree->Print();
 OutTree->SetDirectory(rf);
