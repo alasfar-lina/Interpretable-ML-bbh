@@ -1,3 +1,5 @@
+#define LOG(x) std::cout <<x << std::endl
+
 #include "classes/DelphesClasses.h"
 #include "ExRootAnalysis/ExRootResult.h"
 #include "ExRootAnalysis/ExRootTreeBranch.h"
@@ -33,7 +35,7 @@ using namespace fastjet;
 int run_analysis()
 {
   gSystem->Load("libDelphes");
-	const char *inputFile ="/users/pep/alasfarl/HEP_tools/Delphes-3.4.2/hh/HL-LHC14HH-kd750.root";
+	const char *inputFile ="/users/pep/alasfarl/HEP_tools/Delphes-3.4.2/hh/HL-LHC14HH-SM.root";
 
   // Create chain of root trees
   TChain chain("Delphes");
@@ -52,7 +54,7 @@ int run_analysis()
   // Loop over all events
 
 
-     TFile* rf = TFile::Open("./kd750-1btag-HLLHC14.root","recreate");
+     TFile* rf = TFile::Open("./SM-1btag-HLLHC14.root","recreate");
      TTree *OutTree = new TTree("HHSM14","hh   14 TeV events");
      // t1->Print();
      std::vector<PseudoJet> jjets;
@@ -141,8 +143,8 @@ int run_analysis()
        Int_t bflag = jet->BTag;
        pjet.set_user_index(bflag);
        if(jet->PT>PTObsMin && abs(jet->Eta)<EtaObsMax){
-				  if(bflag==0)  jjets.push_back(pjet);
-	    if(bflag==1) bjets.push_back(pjet);
+				  if(bflag==0)  jjets.emplace_back(pjet);
+	    if(bflag==1) bjets.emplace_back(pjet);
     }
 		// delete jet;
 	}
@@ -152,7 +154,7 @@ int run_analysis()
 			 dumphoton.SetPtEtaPhiM(ph->PT,ph->Eta,ph->Phi,0.0); // dummy 4 vector to convert from pt eta to p_i and e to feed into the Psedojet
 			 PseudoJet p(dumphoton.Px(),dumphoton.Py(),dumphoton.Pz(),dumphoton.E());
 			 if(ph->PT>PTAObsMin && abs(ph->Eta)<EtaObsMax){
-	        photons.push_back(p);
+	        photons.emplace_back(p);
 			 }
 			 // delete ph;
 		 }
@@ -162,47 +164,35 @@ int run_analysis()
 				         PseudoJet gamma2 = selected_gammas[1];
 								  PseudoJet gammagamma = join(gamma1,gamma2);
 								 if ((gammagamma.m() >110.0) && (gammagamma.m() < 140.0)){
-					std::vector<PseudoJet> sel_jets  = sorted_by_pt(jjets);
+					// std::vector<PseudoJet> sel_jets  = sorted_by_pt(jjets);
 						std::vector<PseudoJet> sel_bjets  = sorted_by_pt(bjets);
 										njjet = jjets.size();
 										if (bjets.size() <1) continue;
 										nbjet = bjets.size();
 
 										PseudoJet bjet1 = sel_bjets[0];
-										PseudoJet bjet2(0.0,0.0,0.0,0.0);
+										PseudoJet bjet2;
+                    bjet2.reset_momentum_PtYPhiM(1.0e-300,1.0e-30,0.0,0.0); // set rapidity to something very small to very large outputvl
+                    //  LOG(bjet2.eta());
 										if (nbjet>1) {
 											bjet2=sel_bjets[1];
 										}
 
-									Double_t delta_rgg = GetDeltaR(gamma1.eta(),gamma1.phi(),gamma2.eta(),gamma2.phi());
-					            Double_t delta_rbg11 = GetDeltaR(bjet1.eta(),bjet1.phi(),gamma1.eta(),gamma1.phi());
-					            Double_t delta_rbg22 = GetDeltaR(bjet2.eta(),bjet2.phi(),gamma2.eta(),gamma2.phi());
-					            Double_t delta_rbg12 = GetDeltaR(bjet1.eta(),bjet1.phi(),gamma2.eta(),gamma2.phi());
-					            Double_t delta_rbg21 = GetDeltaR(bjet2.eta(),bjet2.phi(),gamma1.eta(),gamma1.phi());
-					            // if( Rbb > 2.0) continue;
-					            // if( delta_rgg > 2.0) continue;
-					            // if(     (delta_rbg11 < 0.2) ||
-					            // (delta_rbg12 < 0.2) ||
-					            // (delta_rbg21 < 0.2) ||
-					            // (delta_rbg22 < 0.2))continue ;
-					              Double_t min_delta_rg = TMath::Min(TMath::Min(delta_rbg11,delta_rbg12),TMath::Min(delta_rbg21,delta_rbg22));
+								  	// Double_t delta_rgg = GetDeltaR(gamma1.eta(),gamma1.phi(),gamma2.eta(),gamma2.phi());
+	  
 					              PseudoJet bb = join(bjet1,bjet2);
 					              PseudoJet HH  = join(bb,gammagamma) ;
 												PseudoJet Hb1  = join(bjet1,gammagamma) ;
-
-					                  // Double_t phi11= bjet1.delta_phi_to(gamma1);
-					                  // Double_t phi12 =bjet1.delta_phi_to(gamma2);
-					                  // Double_t phi21= bjet2.delta_phi_to(gamma1);
-					                  // Double_t phi22 =bjet2.delta_phi_to(gamma2);
-					                  // Double_t dphibg= TMath::Min(TMath::Min(phi11,phi12) ,TMath::Min(phi21,phi22) );
 					                  /////
 					                  ptb1=bjet1.pt();
-					                  ptb2=bjet2.pt();;
+					                  // ptb2= nbjet>2 ? bjet2.pt(): NAN;
+                            ptb2=  bjet2.pt();
 					                  pta1=gamma1.pt() ;
 					                  pta2 =gamma2.pt();
 					                  ptaa= gammagamma.pt();
 					                  etab1=bjet1.eta();
-					                  etab2=bjet2.eta();
+					                  // etab2= nbjet>2 ? bjet2.eta(): NAN;
+                            etab2=  bjet2.eta();
 					                  etaa1=gamma1.eta();
 					                  etaa2=gamma2.eta();
 					                  etaaa=gammagamma.eta();
@@ -212,10 +202,21 @@ int run_analysis()
 														mb1h=Hb1.m();
                             ScalarHT * scht= (ScalarHT*) branchHT->At(0);
 					                  ht= scht->HT;
-					                  drbamin=min_delta_rg;
-					                  drba1=TMath::Min(delta_rbg11,delta_rbg21);
+                            // if (nbjet>2)
+                            // {
+                            //   drbamin= TMath::Min( TMath::Min(bjet1.delta_R(gamma1),bjet1.delta_R(gamma2)),
+                            //                      TMath::Min(bjet2.delta_R(gamma1),bjet2.delta_R(gamma2)));
+                            // } else
+                            // {
+                            //  drbamin=  TMath::Min(bjet1.delta_R(gamma1),bjet1.delta_R(gamma2));
+                            // }
+                            drbamin= TMath::Min( TMath::Min(bjet1.delta_R(gamma1),bjet1.delta_R(gamma2)),
+                                                 TMath::Min(bjet2.delta_R(gamma1),bjet2.delta_R(gamma2)));
+					                  drba1=bjet1.delta_R(gamma1);
 					                  dphiba1 = TMath::Abs(bjet1.delta_phi_to(gamma1));
-					                  dphibb=TMath::Abs(bjet2.delta_phi_to(bjet1));
+					                  // dphibb= nbjet>2? TMath::Abs(bjet2.delta_phi_to(bjet1)): NAN;
+                            dphibb=  TMath::Abs(bjet2.delta_phi_to(bjet1));
+
 														MissingET *Misset = (MissingET*) branchMissingET->At(0);
 														met = Misset->MET;
 														Float_t  prog=  (Float_t)entry/(Float_t) numberOfEntries *100;
