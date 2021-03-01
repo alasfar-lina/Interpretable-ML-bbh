@@ -6,8 +6,9 @@
 void AnalyzeTreeKinematics()
 {
 // Change lines 9, 10, 15 and 34. class = 0 for background and 1 for signal
-    TFile file("ku-1000-1btag-HLLHC14-file2.root");
+    TFile file("ku-1600-1btag-HLLHC14.root");
     TTree* tree = (TTree*) file.Get("HH14");
+    //Lina
     Double_t nbjet, njjet;
     Double_t ptb1, ptb2, pta1, pta2, ptaa;
     Double_t etab1, etab2, etaa1, etaa2, etaaa;
@@ -15,6 +16,17 @@ void AnalyzeTreeKinematics()
     Double_t met, ht;
     Double_t drbamin, drba1, dphiba1, dphibb;
     Double_t weight;
+    /////// Zhouni 
+    /*
+       Float_t nbjet, njjet;
+    Float_t ptb1, ptb2, pta1, pta2, ptaa;
+    Float_t etab1, etab2, etaa1, etaa2, etaaa;
+    Float_t mbb, maa, mb1h, mbbh;
+    Float_t met, ht;
+    Float_t drbamin, drba1, dphiba1, dphibb;
+    Float_t weight;
+    ////////
+    */
     int type = 6;
     tree->SetBranchAddress("nbjet", &nbjet);
     tree->SetBranchAddress("njjet", &njjet);
@@ -40,7 +52,7 @@ void AnalyzeTreeKinematics()
     tree->SetBranchAddress("dphibb", &dphibb);
     tree->SetBranchAddress("weight", &weight);
     std::ofstream myfile;
-    myfile.open("ku-2.csv");
+    myfile.open("ku.csv");
     myfile << "nbjet,njjet,ptb1,ptb2,pta1,pta2,ptaa,etab1,etab2,etaa1,etaa2,etaaa,mbb,maa,mb1h,mbbh,met,ht,drbamin,drba1,dphiba1,dphibb,class,weight" << std::endl;
     for (int i = 0, N = tree->GetEntries(); i < N; ++i) {
         tree->GetEntry(i);
