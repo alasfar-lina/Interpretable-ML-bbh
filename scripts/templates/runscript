@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#######################################################################################
+## Create a directory called WORK (or anything) at the level of the simmulations     ##
+## folder and put this script there and run it. It is both Linux and Mac compatible. ##
+## Comment out the sbatch sbatch.sh line to suppress the submission command.         ##
+##                                                                                   ##
+## -- Ayan Paul (MAR 2021, Berlin)                                                   ##
+#######################################################################################
+
+for j in klm3 klm1 klp2 klp8
+do
+    mkdir -p ${j}
+    cd ${j}
+    cp ../../scripts/templates/* .
+    sed -i -e "s/SIG/${j}.csv/" configurations.json
+    sed -i -e "s/NAME/${j}/" sbatch.sh
+    sbatch sbatch.sh
+    cd ..
+done
