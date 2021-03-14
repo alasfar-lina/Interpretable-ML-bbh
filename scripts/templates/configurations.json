@@ -1,0 +1,8 @@
+{
+  "N_THREADS": 40,
+  "prefix": "../../simulations/HL-LHC/",
+  "classifier_filename": "classifier-5channel-BDT.pickle.dat",
+  "bkg_filename" : "hhsm.csv",
+  "signal_filename": "SIG",
+  "dlist": "['ptb2', 'etab2', 'nbjet', 'etaaa', 'dphibb', 'drba1', 'etaa1', 'etab1', 'dphiba1', 'drbamin', 'pta2']"
+}
