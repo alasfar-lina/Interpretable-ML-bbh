@@ -6,7 +6,7 @@
 void AnalyzeTreeKinematics()
 {
 // Change lines 9, 10, 15 and 34. class = 0 for background and 1 for signal
-    TFile file("./HHSM14-terms/ggHH-SM-BT_Triangle_bigsample-HLLHC14.root");
+    TFile file("./HHSM14-terms/ggHH-SM-BT_Interference_bigsample-HLLHC14-NO_ETA_CUT.root");
     TTree* tree = (TTree*) file.Get("HH14");
     //Lina
     Double_t nbjet, njjet;
@@ -27,7 +27,7 @@ void AnalyzeTreeKinematics()
     Float_t weight;
     ////////
     */
-    int type = 5;
+    int type = 6;
     tree->SetBranchAddress("nbjet", &nbjet);
     tree->SetBranchAddress("njjet", &njjet);
     tree->SetBranchAddress("ptb1", &ptb1);
@@ -52,7 +52,7 @@ void AnalyzeTreeKinematics()
     tree->SetBranchAddress("dphibb", &dphibb);
     tree->SetBranchAddress("weight", &weight);
     std::ofstream myfile;
-    myfile.open("./HHSM14-terms/hhsm14_triangle_bigsample_class5.csv");
+    myfile.open("./HHSM14-terms/hhsm14_interference_bigsample_NOETACUT_class6.csv");
     myfile << "nbjet,njjet,ptb1,ptb2,pta1,pta2,ptaa,etab1,etab2,etaa1,etaa2,etaaa,mbb,maa,mb1h,mbbh,met,ht,drbamin,drba1,dphiba1,dphibb,class,weight" << std::endl;
     for (int i = 0, N = tree->GetEntries(); i < N; ++i) {
         tree->GetEntry(i);
